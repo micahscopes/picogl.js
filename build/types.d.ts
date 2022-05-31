@@ -890,6 +890,8 @@ export class DrawCall {
      *                 <li> (Number) Number of elements to skip at the start of the array.
      *                 <li> (Number) Number of elements to draw.
      *                 <li> (Number - optional) Number of instances to draw of the given range.
+     *                 <li> (Number - optional) Base instance to begin drawing.
+     *                 <li> (Number - optional) Base vertex to begin drawing.
      *             </ul>
      * @returns The DrawCall object.
      */
