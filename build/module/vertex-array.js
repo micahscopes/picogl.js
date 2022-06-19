@@ -44,6 +44,7 @@ export class VertexArray {
         this.numInstances = 1;
         this.offsets = 0;
         this.numDraws = 1;
+        this.instanceAttributeBuffers = {};
     }
 
     /**
@@ -106,8 +107,15 @@ export class VertexArray {
     */
     instanceAttributeBuffer(attributeIndex, vertexBuffer, options = DUMMY_OBJECT) {
         this.attributeBuffer(attributeIndex, vertexBuffer, options, true);
+        this.instanceAttributeBuffers[attributeIndex] = {vertexBuffer, options};
 
         return this;
+    }
+    
+    baseOffsetInstanceAttributeBuffers(baseOffset=0) {
+        Object.entries(this.instanceAttributeBuffers).forEach(([attributeIndex, {vertexBuffer, options}]) => {
+            this.attributeBuffer(Number(attributeIndex), vertexBuffer, options, true, baseOffset);
+        });
     }
 
     /**
@@ -164,7 +172,7 @@ export class VertexArray {
     }
 
     // Generic attribute buffer attachment
-    attributeBuffer(attributeIndex, vertexBuffer, options = {}, instanced) {
+    attributeBuffer(attributeIndex, vertexBuffer, options = {}, instanced, baseInstance=0) {
         // allocate at gl level, if necessary
         if (this.vertexArray === null) {
             this.vertexArray = this.gl.createVertexArray();
@@ -198,7 +206,8 @@ export class VertexArray {
                     size,
                     type,
                     stride,
-                    offset + i * size * TYPE_SIZE[type]);
+                    offset + i * size * TYPE_SIZE[type] + baseInstance*stride
+                );
             } else {
                 this.gl.vertexAttribPointer(
                     attributeIndex + i,
@@ -206,7 +215,8 @@ export class VertexArray {
                     type,
                     normalized,
                     stride,
-                    offset + i * size * TYPE_SIZE[type]);
+                    offset + i * size * TYPE_SIZE[type] + baseInstance*stride
+                );
             }
 
             if (instanced) {

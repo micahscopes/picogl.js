@@ -72,6 +72,7 @@ export class DrawCall {
         this.baseInstances = new Uint32Array(1);
 
         this.hasBaseInstancesOrBaseVertices = false;
+        this.missingExtensionWarningDispatched = false;
 
         this.numDraws = 1;
         this.drawCountsFromVertexArray = true;
@@ -207,10 +208,11 @@ export class DrawCall {
             this.numInstances[i] = count[2] || 1;
             this.baseInstances[i] = count[3] || 0;
             this.baseVertices[i] = count[4] || 0;
+            
+            this.hasBaseVertices = this.hasBaseVertices || this.baseVertices[i];
+            this.hasBaseInstances = this.hasBaseInstances || this.baseInstances[i];
 
-            this.hasBaseInstancesOrBaseVertices = this.hasBaseInstancesOrBaseVertices
-                || this.baseInstances[i]
-                || this.baseVertices[i];
+            this.hasBaseInstancesOrBaseVertices = this.hasBaseInstances || this.hasBaseVertices;
         }
 
         this.drawCountsFromVertexArray = false;
@@ -265,8 +267,9 @@ export class DrawCall {
             this.appState.transformFeedback = null;
         }
 
-        if (this.hasBaseInstancesOrBaseVertices && !(WEBGL_INFO.DRAW_INSTANCED_BASE_VERTEX_BASE_INSTANCE || WEBGL_INFO.MULTI_DRAW_INSTANCED_BASE_VERTEX_BASE_INSTANCE)) {
-            console.warn("DrawCall.draw 'baseInstances' or 'baseVertices' have been set but the required WebGL extensions are not available; 'WEBGL_multidraw_instanced_base_vertex_base_instance' or 'WEBGL_draw_instanced_base_vertex_base_instance' are needed.");
+        if (this.hasBaseInstancesOrBaseVertices && !(WEBGL_INFO.DRAW_INSTANCED_BASE_VERTEX_BASE_INSTANCE || WEBGL_INFO.MULTI_DRAW_INSTANCED_BASE_VERTEX_BASE_INSTANCE) && !this.missingExtensionWarningDispatched) {
+            console.warn("DrawCall.draw 'baseInstances' or 'baseVertices' have been set but supporting WebGL extensions are not available; Without 'WEBGL_multidraw_instanced_base_vertex_base_instance' or 'WEBGL_draw_instanced_base_vertex_base_instance' are needed for optimal performance.");
+            this.missingExtensionWarningDispatched = true;
         }
 
         if (WEBGL_INFO.MULTI_DRAW_INSTANCED_BASE_VERTEX_BASE_INSTANCE) {
@@ -287,7 +290,7 @@ export class DrawCall {
                     ext.drawArraysInstancedBaseInstanceWEBGL(this.drawPrimitive, this.offsets[i], this.numElements[i], this.numInstances[i], this.baseInstances[i]);
                 }
             }
-        } else if (WEBGL_INFO.MULTI_DRAW_INSTANCED) {
+        } else if (WEBGL_INFO.MULTI_DRAW_INSTANCED && !this.hasBaseInstancesOrBaseVertices) {
             let ext = this.appState.extensions.multiDrawInstanced;
             if (indexed) {
                 ext.multiDrawElementsInstancedWEBGL(this.drawPrimitive, this.numElements, 0, this.currentVertexArray.indexType, this.offsets, 0, this.numInstances, 0, this.numDraws);
@@ -296,10 +299,20 @@ export class DrawCall {
             }
         } else if (indexed) {
             for (let i = 0; i < this.numDraws; ++i) {
+                if (this.hasBaseInstances) {
+                    if (this.currentVertexArray) {
+                        this.currentVertexArray.baseOffsetInstanceAttributeBuffers(this.baseInstances[i]);
+                    }
+                }
                 this.gl.drawElementsInstanced(this.drawPrimitive, this.numElements[i], this.currentVertexArray.indexType, this.offsets[i], this.numInstances[i]);
             }
         } else {
             for (let i = 0; i < this.numDraws; ++i) {
+                if (this.hasBaseInstances) {
+                    if (this.currentVertexArray) {
+                        this.currentVertexArray.baseOffsetInstanceAttributeBuffers(this.baseInstances[i]);
+                    }
+                }
                 this.gl.drawArraysInstanced(this.drawPrimitive, this.offsets[i], this.numElements[i], this.numInstances[i]);
             }
         }
